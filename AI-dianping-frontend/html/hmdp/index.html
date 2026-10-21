@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+    />
+    <title>巷里 · 发现城市里的小店</title>
+    <link rel="stylesheet" href="./css/element.css" />
+    <link href="./css/index.css" rel="stylesheet" />
+    <link href="./css/main.css" rel="stylesheet" />
+    <link href="./css/glass.css" rel="stylesheet" />
+    <link href="./css/xiangli.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app" class="xl-home">
+      <header class="xl-top">
+        <div class="xl-brand">
+          <span class="xl-logo">巷</span>
+          <div>
+            <strong>巷里</strong>
+            <small>XIANG LI</small>
+          </div>
+        </div>
+        <div class="xl-avatar" @click="toPage(4)">
+          <i class="el-icon-user"></i>
+        </div>
+      </header>
+
+      <section class="xl-hero">
+        <p class="xl-kicker">LOCAL LIFE · 城市灵感</p>
+        <h1>发现城市里<br />藏起来的小店</h1>
+        <div class="xl-search">
+          <i class="el-icon-search"></i>
+          <el-input
+            v-model="keyword"
+            size="small"
+            placeholder="搜店铺、咖啡、展览"
+            @keyup.enter.native="searchShop"
+          ></el-input>
+          <span class="xl-search-go" @click="searchShop">搜索</span>
+        </div>
+      </section>
+
+      <section class="xl-sec">
+        <div class="xl-sec-head">
+          <h2>逛逛分类</h2>
+          <span>按兴趣找店</span>
+        </div>
+        <div class="xl-cats">
+          <div
+            class="xl-cat"
+            v-for="t in types"
+            :key="t.id"
+            @click="toShopList(t.id, t.name)"
+          >
+            <img :src="'/imgs/' + t.icon" alt="" />
+            <span>{{ t.name }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="xl-sec xl-sec--feed">
+        <div class="xl-sec-head">
+          <h2>巷里动态</h2>
+          <span>来自主理人与食客</span>
+        </div>
+        <div class="xl-feed" @scroll="onScroll">
+          <article class="xl-card" v-for="b in blogs" :key="b.id">
+            <div class="xl-card-img" @click="toBlogDetail(b)">
+              <img :src="b.img" alt="" />
+            </div>
+            <div class="xl-card-body">
+              <h3 @click="toBlogDetail(b)">{{ b.title }}</h3>
+              <p class="xl-card-desc" v-if="b.excerpt">{{ b.excerpt }}</p>
+              <div class="xl-card-foot">
+                <img
+                  class="xl-ava"
+                  :src="b.icon || '/imgs/icons/default-icon.png'"
+                  alt=""
+                />
+                <span class="xl-name">{{ b.name }}</span>
+                <button class="xl-like" @click.stop="addLike(b)">
+                  <i class="el-icon-star-off"></i>{{ b.liked }}
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <foot-bar :active-btn="1"></foot-bar>
+    </div>
+
+    <script src="./js/vue.js"></script>
+    <script src="./js/axios.min.js"></script>
+    <script src="./js/element.js"></script>
+    <script src="./js/common.js"></script>
+    <script src="./js/footer.js"></script>
+    <script>
+      const app = new Vue({
+        el: "#app",
+        data: {
+          isReachBottom: false,
+          keyword: "",
+          types: [],
+          blogs: [],
+          current: 1,
+        },
+        created() {
+          this.queryTypes();
+          this.queryHotBlogsScroll();
+        },
+        methods: {
+          queryTypes() {
+            axios
+              .get("/shop-type/list")
+              .then(({ data }) => {
+                this.types = data || [];
+              })
+              .catch((err) => this.$message.error(err));
+          },
+          queryHotBlogsScroll() {
+            axios
+              .get("/blog/hot?current=" + this.current)
+              .then(({ data }) => {
+                if (!data) return;
+                data.forEach((b) => {
+                  b.img = (b.images || "").split(",")[0];
+                  b.excerpt = (b.content || "")
+                    .replace(/<[^>]+>/g, " ")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                    .slice(0, 72);
+                });
+                this.blogs = this.blogs.concat(data);
+              })
+              .catch((err) => this.$message.error(err));
+          },
+          addLike(b) {
+            axios
+              .put("/blog/like/" + b.id)
+              .then(() => this.queryBlogById(b))
+              .catch((err) => this.$message.error(err));
+          },
+          queryBlogById(b) {
+            axios
+              .get("/blog/" + b.id)
+              .then(({ data }) => {
+                b.liked = data.liked;
+                b.isLike = data.isLike;
+              })
+              .catch(() => {
+                b.liked++;
+              });
+          },
+          onScroll(e) {
+            const el = e.target;
+            if (
+              el.scrollTop + el.offsetHeight + 1 > el.scrollHeight &&
+              !this.isReachBottom
+            ) {
+              this.isReachBottom = true;
+              this.current++;
+              this.queryHotBlogsScroll();
+            } else {
+              this.isReachBottom = false;
+            }
+          },
+          searchShop() {
+            if (!this.keyword) {
+              this.$message.warning("先输入想找的店铺或关键词");
+              return;
+            }
+            location.href =
+              "/shop-list.html?type=1&name=" + encodeURIComponent(this.keyword);
+          },
+          toShopList(id, name) {
+            location.href = "/shop-list.html?type=" + id + "&name=" + name;
+          },
+          toBlogDetail(b) {
+            location.href = "/blog-detail.html?id=" + b.id;
+          },
+          toPage(i) {
+            if (i === 4) location.href = "/info.html";
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

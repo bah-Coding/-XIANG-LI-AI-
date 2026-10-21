@@ -1,0 +1,7 @@
+target/
+logs/
+*.log
+.idea/
+*.iml
+.git/
+Dockerfile

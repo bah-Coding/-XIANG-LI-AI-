@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>发布优惠券 · 巷里 · 本地生活</title>
+    <link rel="stylesheet" href="./css/element.css" />
+    <link rel="stylesheet" href="./css/main.css" />
+    <style>
+      body { background: #f5f6f8; }
+      .admin-wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
+      .admin-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+      .admin-header .back { cursor: pointer; font-size: 20px; color: #333; }
+      .admin-header h2 { font-size: 20px; margin: 0; color: #222; }
+      .card { background: #fff; border-radius: 12px; padding: 20px 20px 8px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom: 18px; }
+      .card h3 { margin: 0 0 14px; font-size: 16px; color: #333; }
+      .hint { font-size: 12px; color: #999; line-height: 1.7; margin: 4px 0 12px; }
+      .result { margin-top: 10px; }
+      .el-form-item { margin-bottom: 14px; }
+    </style>
+    <link href="./css/xiangli.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app" class="admin-wrap">
+      <div class="admin-header">
+        <span class="back" @click="goBack"><i class="el-icon-arrow-left"></i></span>
+        <h2>发布优惠券</h2>
+      </div>
+
+      <div class="card">
+        <h3>发布秒杀券</h3>
+        <p class="hint">
+          金额单位为「分」（例如 500 = 5 元）。发布成功后会自动写入秒杀库存到 Redis，可立即去店铺详情页抢券。
+        </p>
+        <el-form :model="form" label-width="110px" size="small">
+          <el-form-item label="店铺 ID">
+            <el-input-number v-model="form.shopId" :min="1" :max="9999" style="width: 160px"></el-input-number>
+            <span class="hint" style="margin-left:8px">店铺 ID 可在店铺详情页地址栏 ?id= 后看到（默认 1~14）</span>
+          </el-form-item>
+          <el-form-item label="券标题">
+            <el-input v-model="form.title" placeholder="例如：100 元代金券" style="max-width: 420px"></el-input>
+          </el-form-item>
+          <el-form-item label="副标题">
+            <el-input v-model="form.subTitle" placeholder="例如：周一至周日均可使用" style="max-width: 420px"></el-input>
+          </el-form-item>
+          <el-form-item label="使用规则">
+            <el-input v-model="form.rules" type="textarea" :rows="2" placeholder="例如：全场通用，不兑现、不找零" style="max-width: 520px"></el-input>
+          </el-form-item>
+          <el-form-item label="支付金额(分)">
+            <el-input-number v-model="form.payValue" :min="1" :step="100" style="width: 160px"></el-input-number>
+          </el-form-item>
+          <el-form-item label="抵扣金额(分)">
+            <el-input-number v-model="form.actualValue" :min="1" :step="100" style="width: 160px"></el-input-number>
+          </el-form-item>
+          <el-form-item label="库存">
+            <el-input-number v-model="form.stock" :min="1" :max="100000" style="width: 160px"></el-input-number>
+          </el-form-item>
+          <el-form-item label="开始时间">
+            <el-date-picker v-model="form.beginTime" type="datetime" value-format="yyyy-MM-ddTHH:mm:ss" placeholder="选择开始时间"></el-date-picker>
+          </el-form-item>
+          <el-form-item label="结束时间">
+            <el-date-picker v-model="form.endTime" type="datetime" value-format="yyyy-MM-ddTHH:mm:ss" placeholder="选择结束时间"></el-date-picker>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="saving" @click="submit">发布秒杀券</el-button>
+            <el-button @click="fillDemo">填入示例</el-button>
+          </el-form-item>
+        </el-form>
+
+        <div class="result" v-if="createdId">
+          <el-alert type="success" :closable="false" show-icon>
+            <div slot="title">发布成功，券 ID：{{ createdId }}</div>
+            <div>
+              <a :href="'/shop-detail.html?id=' + form.shopId" target="_blank">去店铺详情页查看 / 抢券</a>
+            </div>
+          </el-alert>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>查询店铺的券</h3>
+        <el-form :inline="true" size="small">
+          <el-form-item label="店铺 ID">
+            <el-input-number v-model="queryShopId" :min="1" :max="9999" style="width: 140px"></el-input-number>
+          </el-form-item>
+          <el-form-item>
+            <el-button @click="loadVouchers">查询</el-button>
+          </el-form-item>
+        </el-form>
+        <el-table :data="vouchers" size="small" border style="width: 100%">
+          <el-table-column prop="id" label="ID" width="70"></el-table-column>
+          <el-table-column prop="title" label="标题" min-width="160"></el-table-column>
+          <el-table-column label="类型" width="90">
+            <template slot-scope="scope">{{ scope.row.type === 1 ? '秒杀券' : '普通券' }}</template>
+          </el-table-column>
+          <el-table-column prop="payValue" label="支付(分)" width="90"></el-table-column>
+          <el-table-column prop="actualValue" label="抵扣(分)" width="90"></el-table-column>
+          <el-table-column prop="stock" label="库存" width="80"></el-table-column>
+          <el-table-column prop="beginTime" label="开始" width="150"></el-table-column>
+          <el-table-column prop="endTime" label="结束" width="150"></el-table-column>
+        </el-table>
+      </div>
+    </div>
+
+    <script src="./js/vue.js"></script>
+    <script src="./js/axios.min.js"></script>
+    <script src="./js/element.js"></script>
+    <script src="./js/common.js"></script>
+    <script>
+      new Vue({
+        el: "#app",
+        data: {
+          util,
+          saving: false,
+          createdId: null,
+          queryShopId: 1,
+          vouchers: [],
+          form: {
+            shopId: 1,
+            title: "",
+            subTitle: "",
+            rules: "",
+            payValue: 500,
+            actualValue: 1000,
+            stock: 10,
+            type: 1,
+            status: 1,
+            beginTime: "",
+            endTime: ""
+          }
+        },
+        created() {
+          this.fillDemo();
+          const sid = util.getUrlParam("shopId");
+          if (sid && Number(sid) > 0) {
+            this.form.shopId = Number(sid);
+            this.queryShopId = Number(sid);
+            this.loadVouchers();
+          }
+        },
+        methods: {
+          goBack() {
+            history.back();
+          },
+          fillDemo() {
+            const now = new Date();
+            const start = new Date(now.getTime() + 60 * 1000);
+            const end = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+            const fmt = (d) =>
+              d.getFullYear() +
+              "-" + String(d.getMonth() + 1).padStart(2, "0") +
+              "-" + String(d.getDate()).padStart(2, "0") +
+              "T" + String(d.getHours()).padStart(2, "0") +
+              ":" + String(d.getMinutes()).padStart(2, "0") +
+              ":00";
+            this.form = {
+              shopId: 1,
+              title: "100元代金券",
+              subTitle: "限时秒杀 · 5元购",
+              rules: "全场通用\n无需预约\n不兑现、不找零",
+              payValue: 500,
+              actualValue: 1000,
+              stock: 10,
+              type: 1,
+              status: 1,
+              beginTime: fmt(start),
+              endTime: fmt(end)
+            };
+          },
+          submit() {
+            if (!this.form.title) {
+              this.$message.warning("请填写券标题");
+              return;
+            }
+            if (!this.form.beginTime || !this.form.endTime) {
+              this.$message.warning("请选择开始与结束时间");
+              return;
+            }
+            this.saving = true;
+            this.createdId = null;
+            axios
+              .post("/voucher/seckill", this.form)
+              .then((res) => {
+                this.createdId = res.data;
+                this.$message.success("发布成功，券 ID：" + res.data);
+                this.queryShopId = this.form.shopId;
+                this.loadVouchers();
+              })
+              .catch((err) => {
+                this.$message.error(String(err));
+              })
+              .finally(() => {
+                this.saving = false;
+              });
+          },
+          loadVouchers() {
+            axios
+              .get("/voucher/list/" + this.queryShopId)
+              .then((res) => {
+                this.vouchers = res.data || [];
+              })
+              .catch((err) => {
+                this.$message.error(String(err));
+              });
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

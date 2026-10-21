@@ -1,0 +1,32 @@
+# IDE
+# Ignore IntelliJ IDEA project files
+/AI-dianping-backend/.idea/
+
+# Build output
+# Ignore Maven build output directory
+/AI-dianping-backend/target/
+
+# NGINX runtime files
+# Ignore NGINX logs, temp files and the executable
+/AI-dianping-frontend/logs/
+/AI-dianping-frontend/temp/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Local deployment (machine specific)
+/logs/
+/local.env.ps1
+/.run/
+/.env
+*.log
+
+# 根目录 IDEA 配置（AI-dianping-backend/.idea 已在上面单独忽略）
+/.idea/
+
+# nginx 发行包：二进制与自带文档不入库，本地照常运行
+/AI-dianping-frontend/nginx.exe
+/AI-dianping-frontend/conf/
+/AI-dianping-frontend/contrib/
+/AI-dianping-frontend/docs/

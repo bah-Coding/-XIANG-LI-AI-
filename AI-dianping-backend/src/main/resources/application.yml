@@ -1,0 +1,101 @@
+spring:
+  application:
+    name: hm-dianping
+  #配置数据库连接信息（全部走环境变量，仓库里不保存任何真实账号密码）
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/hmdp?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  data:
+    redis:
+      # 本机默认 localhost；连远程/虚拟机 Redis 用环境变量覆盖：
+      #   REDIS_HOST、REDIS_PASSWORD（见仓库根目录 .env.example）
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 10
+          min-idle: 1
+          time-between-eviction-runs: 10s
+      database: 0
+  jackson:
+    default-property-inclusion: non_null # JSON处理时忽略非空字段
+  # RabbitMQ：订单超时取消的延迟队列
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: auto
+        # 消费失败本地重试 3 次（间隔递增），仍失败则拒绝并进入死信队列
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 5s
+        default-requeue-rejected: false
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 60MB
+mybatis-plus:
+  type-aliases-package: com.hmdp.entity # 别名扫描包
+# 业务配置
+hmdp:
+  # 图片上传目录（指向 Nginx 静态目录下的 imgs，如 <project>/AI-dianping-frontend/html/hmdp/imgs/）
+  image-upload-dir: ${IMAGE_UPLOAD_DIR:imgs/}
+  # 订单未支付超时时间（毫秒），超时后自动取消并回滚库存
+  order:
+    timeout-ms: ${ORDER_TIMEOUT_MS:900000}
+logging:
+  level:
+    com.hmdp: debug
+server:
+  port: 8081
+# 可观测性：健康检查与指标
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    # MQ 未启用时（RABBITMQ_ENABLED=false）不要因 broker 不可达把整体健康状态拉成 DOWN
+    rabbit:
+      enabled: ${RABBITMQ_ENABLED:true}
+  metrics:
+    tags:
+      application: hm-dianping
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# 配置ai模型（阿里云百炼 DashScope 的 OpenAI 兼容模式）
+# 未配置真实 API_KEY 时：AI Skills 走本地兜底内容，智能客服实时对话不可用
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${API_KEY:sk-not-configured}
+      model-name: qwen-flash
+      log-requests: true
+      log-responses: true
+    streaming-chat-model:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${API_KEY:sk-not-configured}
+      model-name: qwen-flash
+      log-requests: true
+      log-responses: true

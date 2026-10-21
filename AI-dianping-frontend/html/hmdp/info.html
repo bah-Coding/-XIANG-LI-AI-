@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+    />
+    <title>巷里 · 本地生活</title>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="./css/element.css" />
+    <link href="./css/main.css" rel="stylesheet" />
+    <link href="./css/info.css" rel="stylesheet" />
+    <link href="./css/glass.css" rel="stylesheet" />
+
+    <style type="text/css">
+      .el-tabs--bottom .el-tabs__item.is-bottom:nth-child(2),
+      .el-tabs--bottom .el-tabs__item.is-top:nth-child(2),
+      .el-tabs--top .el-tabs__item.is-bottom:nth-child(2),
+      .el-tabs--top .el-tabs__item.is-top:nth-child(2) {
+        padding-left: 15px;
+      }
+
+      .el-tabs,
+      .el-tab-pane {
+        height: 100%;
+      }
+
+      .el-tabs__header {
+        height: 10%;
+      }
+
+      .el-tabs__content {
+        height: 90%;
+      }
+    </style>
+    <link href="./css/xiangli.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="app">
+      <div class="header">
+        <div class="header-back-btn" @click="goBack">
+          <i class="el-icon-arrow-left"></i>
+        </div>
+        <div class="header-title">个人主页&nbsp;&nbsp;&nbsp;</div>
+      </div>
+      <!-- <div class="basic">
+        <div class="basic-icon">
+          <img :src="user.icon || '/imgs/icons/default-icon.png'" alt="" />
+        </div>
+        <div class="basic-info">
+          <div class="name">{{user.nickName}}</div>
+          <span v-if="info.city">{{ info.city }}</span>
+          <div class="edit-btn" @click="toEdit">编辑资料</div>
+        </div>
+        <div class="logout-btn" @click="logout">退出登录</div>
+      </div>
+      <div class="introduce">
+        <span v-if="info.introduce"></span>
+        <span v-else
+          >添加个人简介，让大家更好的认识你 <i class="el-icon-edit"></i
+        ></span>
+      </div> -->
+      <div class="basic">
+        <div class="basic-top-row">
+          <div class="basic-icon">
+            <img :src="user.icon || '/imgs/icons/default-icon.png'" alt="" />
+          </div>
+          <div class="basic-info">
+            <div class="name">{{user.nickName}}</div>
+            <span v-if="info.city">{{ info.city }}</span>
+            <div class="edit-btn" @click="toEdit">编辑资料</div>
+          </div>
+          <div class="logout-btn" @click="logout">退出登录</div>
+        </div>
+        <div class="introduce">
+          <span v-if="info.introduce"></span>
+          <span v-else
+            >添加个人简介，让大家更好的认识你 <i class="el-icon-edit"></i
+          ></span>
+        </div>
+      </div>
+      <div class="content">
+        <el-tabs v-model="activeName" @tab-click="handleClick">
+          <el-tab-pane label="笔记" name="1">
+            <div v-for="b in blogs" :key="b.id" class="blog-item">
+              <div class="blog-img">
+                <img :src="b.images.split(',')[0]" alt="" />
+              </div>
+              <div class="blog-info">
+                <div class="blog-title">{{b.title}}</div>
+                <div class="blog-liked">
+                  <img src="/imgs/thumbup.png" alt="" /> {{b.liked}}
+                </div>
+                <div class="blog-comments">
+                  <i class="el-icon-chat-dot-round"></i> {{b.comments}}
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="评价" name="2">评价</el-tab-pane>
+          <el-tab-pane :label="`粉丝(${fans.length})`" name="3">
+            <div class="xl-user-list">
+              <div class="xl-empty" v-if="!fans.length">还没有粉丝</div>
+              <div
+                class="xl-user-item"
+                v-for="u in fans"
+                :key="u.id"
+                @click="toUser(u.id)"
+              >
+                <img :src="u.icon || '/imgs/icons/default-icon.png'" alt="" />
+                <span class="name">{{ u.nickName }}</span>
+                <span class="go">去看看</span>
+              </div>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane :label="`关注(${follows.length})`" name="4">
+            <div class="xl-user-list">
+              <div class="xl-empty" v-if="!follows.length">还没有关注任何人</div>
+              <div
+                class="xl-user-item"
+                v-for="u in follows"
+                :key="u.id"
+                @click="toUser(u.id)"
+              >
+                <img :src="u.icon || '/imgs/icons/default-icon.png'" alt="" />
+                <span class="name">{{ u.nickName }}</span>
+                <span class="go">去看看</span>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      <foot-bar :active-btn="4"></foot-bar>
+    </div>
+    <script src="./js/vue.js"></script>
+    <script src="./js/axios.min.js"></script>
+    <!-- 引入组件库 -->
+    <script src="./js/element.js"></script>
+    <script src="./js/common.js"></script>
+    <script src="./js/footer.js"></script>
+    <script>
+      const app = new Vue({
+        el: "#app",
+        data: {
+          user: "",
+          activeName: "1",
+          info: {
+            fansCount: 0,
+            followCount: 0,
+          },
+          fans: [],
+          follows: [],
+          blogs: [],
+          blogs2: [], // 关注的人的播客
+          params: {
+            minTime: 0, // 上一次拉取到的时间戳
+            offset: 0, // 偏移量
+          },
+          count: 5,
+          isReachBottom: false,
+        },
+        created() {
+          // 支持 ?tab=3/4 直接打开粉丝/关注
+          this.activeName = util.getUrlParam("tab") || "1";
+          this.queryUser();
+        },
+        methods: {
+          load() {
+            this.count += 2;
+          },
+          queryBlogs() {
+            axios
+              .get("/blog/of/me")
+              .then(({ data }) => (this.blogs = data))
+              .catch(this.$message.error);
+          },
+          queryFollows() {
+            axios
+              .get("/follow/follows/" + this.user.id)
+              .then(({ data }) => (this.follows = data || []))
+              .catch(() => (this.follows = []));
+          },
+          queryFans() {
+            axios
+              .get("/follow/fans/" + this.user.id)
+              .then(({ data }) => (this.fans = data || []))
+              .catch(() => (this.fans = []));
+          },
+          toUser(id) {
+            location.href = "/other-info.html?id=" + id;
+          },
+          queryBlogsOfFollow(clear) {
+            if (clear) {
+              this.params.offset = 0;
+              this.params.minTime = new Date().getTime() + 1;
+            }
+            let { minTime, offset: os } = this.params;
+            axios
+              .get("/blog/of/follow", {
+                params: {
+                  offset: os,
+                  lastId: minTime || new Date().getTime() + 1,
+                },
+              })
+              .then(({ data }) => {
+                if (!data) {
+                  return;
+                }
+                let { list, ...params } = data;
+                list.forEach((b) => (b.img = b.images.split(",")[0]));
+                this.blogs2 = clear ? list : this.blogs2.concat(list);
+                this.params = params;
+              })
+              .catch((e) => console.log(e));
+          },
+          queryUser() {
+            // 查询用户信息
+            axios
+              .get("/user/me")
+              .then(({ data }) => {
+                // 保存用户
+                this.user = data;
+                // 查询用户详情
+                this.queryUserInfo();
+                // 查询用户笔记
+                this.queryBlogs();
+                // 查询关注 / 粉丝
+                this.queryFollows();
+                this.queryFans();
+              })
+              .catch((err) => {
+                location.href = "login.html";
+              });
+          },
+          goBack() {
+            history.back();
+          },
+          queryUserInfo() {
+            axios
+              .get("/user/info/" + this.user.id)
+              .then(({ data }) => {
+                if (!data) {
+                  return;
+                }
+                // 保存用户详情
+                this.info = data;
+                // 保存到本地
+                sessionStorage.setItem("userInfo", JSON.stringify(data));
+              })
+              .catch((err) => {
+                this.$message.error(err);
+              });
+          },
+          toEdit() {
+            location.href = "info-edit.html";
+          },
+          logout() {
+            axios
+              .post("/user/logout")
+              .then(() => {
+                // 清理session
+                sessionStorage.removeItem("token");
+                // 跳转
+                location.href = "/";
+              })
+              .catch(this.$message.error);
+          },
+          handleClick(r) {
+            if (r.name === "4") {
+              this.queryBlogsOfFollow(true);
+            }
+          },
+          addLike(b) {
+            axios
+              .put("/blog/like/" + b.id)
+              .then(({ data }) => {
+                this.queryBlogById(b);
+              })
+              .catch((err) => {
+                this.$message.error(err);
+              });
+          },
+          queryBlogById(b) {
+            axios
+              .get("/blog/" + b.id)
+              .then(({ data }) => {
+                b.liked = data.liked;
+                b.isLike = data.isLike;
+              })
+              .catch(() => {
+                this.$message.error;
+                b.liked++;
+              });
+          },
+          onScroll(e) {
+            let scrollTop = e.target.scrollTop;
+            let offsetHeight = e.target.offsetHeight;
+            let scrollHeight = e.target.scrollHeight;
+            if (scrollTop === 0) {
+              // 到顶部了，查询一次
+              this.queryBlogsOfFollow(true);
+            } else if (
+              scrollTop + offsetHeight + 1 > scrollHeight &&
+              !this.isReachBottom
+            ) {
+              this.isReachBottom = true;
+              // 再次查询下一页数据
+              this.queryBlogsOfFollow();
+            } else {
+              this.isReachBottom = false;
+            }
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

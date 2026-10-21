@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+    />
+    <title>登录 · 巷里</title>
+    <link rel="stylesheet" href="./css/element.css" />
+    <link href="./css/main.css" rel="stylesheet" />
+    <link href="./css/login.css" rel="stylesheet" />
+    <link href="./css/xiangli.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app" class="xl-auth">
+      <div class="xl-auth-card">
+        <div class="xl-brand">
+          <span class="xl-logo">巷</span>
+          <div>
+            <strong>巷里</strong>
+            <small>XIANG LI</small>
+          </div>
+        </div>
+
+        <h1>欢迎回到巷里</h1>
+        <p class="xl-auth-sub">
+          手机号登录，继续发现城市里的小店、笔记和限时好券。
+        </p>
+
+        <el-input v-model="form.phone" placeholder="手机号" maxlength="11"></el-input>
+        <div class="xl-code-row">
+          <el-input v-model="form.code" placeholder="验证码" maxlength="6"></el-input>
+          <el-button :disabled="disabled" @click="sendCode">
+            {{ codeBtnMsg }}
+          </el-button>
+        </div>
+
+        <el-button type="primary" class="xl-auth-btn" @click="login">
+          登 录
+        </el-button>
+
+        <label class="xl-agree">
+          <input type="checkbox" v-model="radio" value="1" />
+          <span>
+            我已阅读并同意
+            <a href="javascript:void(0)">《巷里用户服务协议》</a>与
+            <a href="javascript:void(0)">《隐私政策》</a>
+          </span>
+        </label>
+
+        <p class="xl-auth-alt">
+          想出密码登录？<a href="/login2.html">切换</a>
+        </p>
+      </div>
+    </div>
+
+    <script src="./js/vue.js"></script>
+    <script src="./js/axios.min.js"></script>
+    <script src="./js/element.js"></script>
+    <script src="./js/common.js"></script>
+    <script>
+      const app = new Vue({
+        el: "#app",
+        data: {
+          radio: "",
+          disabled: false,
+          codeBtnMsg: "发送验证码",
+          form: {},
+        },
+        methods: {
+          login() {
+            if (!this.radio) {
+              this.$message.error("请先阅读并同意用户协议");
+              return;
+            }
+            if (!this.form.phone || !this.form.code) {
+              this.$message.error("手机号和验证码不能为空");
+              return;
+            }
+            axios
+              .post("/user/login", this.form)
+              .then(({ data }) => {
+                if (data) {
+                  sessionStorage.setItem("token", data);
+                }
+                location.href = "/info.html";
+              })
+              .catch((err) => this.$message.error(err));
+          },
+          sendCode() {
+            if (!this.form.phone) {
+              this.$message.error("手机号不能为空");
+              return;
+            }
+            axios
+              .post("/user/code?phone=" + this.form.phone)
+              .then(() => this.$message.success("验证码已发送，请查收"))
+              .catch((err) => this.$message.error(err));
+
+            this.disabled = true;
+            let i = 60;
+            this.codeBtnMsg = i-- + " 秒后重发";
+            const taskId = setInterval(
+              () => (this.codeBtnMsg = i-- + " 秒后重发"),
+              1000
+            );
+            setTimeout(() => {
+              this.disabled = false;
+              clearInterval(taskId);
+              this.codeBtnMsg = "发送验证码";
+            }, 59000);
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
